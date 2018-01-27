@@ -38,6 +38,7 @@ Formatversion: 1
         #    SqlDictionary   sqlDictionary;
         #    SysDictField    sysDictField;
         #    DictTable       dictTable;
+        #    boolean         keyEnabled = true; // ffeltrin - checking configuration keys as well
         #
         #    //TODO: Implement view field validation
         #
@@ -49,8 +50,16 @@ Formatversion: 1
         #        if (sqlDictionary.flags == 0)
         #        {
         #            sysDictField = SysDictField::findFieldByName(tableId2name(_applTableId), sqlDictionary.name);
-        #
-        #            if (!sysDictField)
+        
+        #            // ffeltrin - checking configuration keys - 1/27/2018 - start
+        #           if(sysDictField)
+        #           {
+        #             keyEnabled = sysDictField.configurationKeyId() ? new DictConfigurationKey(sysDictField.configurationKeyId()).enabled() : true;
+        #           }
+        #           
+        #           //if (!sysDictField)
+        #           if (!sysDictField || !keyEnabled)
+        #           // ffeltrin - checking configuration keys - 1/27/2018 - end
         #            {
         #                info(strfmt('Field %1.%2 does not exist in the AOT. Deleted from the sqlDictionary.', tableId2name(_applTableId), sqlDictionary.name));
         #                sqlDictionary.delete();
@@ -69,7 +78,14 @@ Formatversion: 1
         #
         #    dictTable = new DictTable(tableName2id(sqlDictionary.name));
         #
-        #    if (sqlDictionary && !dictTable)
+        #   // ffeltrin - checking configuration keys - start
+        #     if(dictTable)
+        #     {
+        #        keyEnabled = sysDictField.configurationKeyId() ? new DictConfigurationKey(dictTable.configurationKeyId()).enabled() : true;
+        #     }
+        #    //if (sqlDictionary && !dictTable)
+        #   if (sqlDictionary && (!dictTable || !keyEnabled)
+        #   // ffeltrin - checking configuration keys - end
         #    {
         #        if (sqlDictionary.flags == 0)
         #        {
@@ -363,7 +379,8 @@ Formatversion: 1
         #        //ret = 0;
         #    //}
         #
-        #    return dict.tabId; //ret;
+        #    //return dict.tabId; //ret;
+        #    return dict.tabId+1; // ffeltrin - make sure to return a free table Id
         #}
       ENDSOURCE
       SOURCE #initProgressBar
@@ -519,6 +536,8 @@ Formatversion: 1
         #                && sqlDictionary.fieldId    == 0
         #                && sqlDictionary.name       == _tableName;
         #
+        #        skip = sqlDictionary.recId; // ffeltrin - skipping further checking
+        #
         #        // Table ID not found, either not synchronised or has a wrong ID
         #        if (!sqlDictionary)
         #        {
@@ -532,7 +551,9 @@ Formatversion: 1
         #                // If the destination table ID is occupied, move it out of the way
         #                select firstonly * from checkDictionary
         #                    where checkDictionary.tabId     == _applTableId
-        #                        && checkDictionary.fieldId  == 0;
+        #                        //&& checkDictionary.fieldId  == 0;
+        #                       && checkDictionary.fieldId  == 0
+        #                       && checkDictionary.name != _tableName;  // ffeltrin - enforce checking by name as well
         #
         #                if (checkDictionary)
         #                {
@@ -547,7 +568,8 @@ Formatversion: 1
         #                info(strfmt('TableId fix :: %1 :: %2 -> %3', _tableName, sqlDictionary.tabId, _applTableId));
         #                ReleaseUpdateDB::changeTableId(sqlDictionary.tabId, _applTableId, _tableName);
         #            }
-        #            else
+        #            // ffeltrin - data dictionary synchronization will do this job later on - begin
+        #            /*else
         #            {
         #                select firstOnly forUpdate * from sqlDictionary
         #                    where sqlDictionary.tabId       == _applTableId
@@ -570,6 +592,8 @@ Formatversion: 1
         #
         #                skip = true;
         #            }
+        #           */
+        #           // ffeltrin - data dictionary synchronization will do this job later on - end
         #        }
         #    }
         #
